@@ -74,3 +74,37 @@ const HD_OP_BITS_RANGE      : Range<usize> = Range { start: 13, end: 15 };
 pub const MAX_PUBLIC_INPUTS : usize = 8;
 pub const MAX_OUTPUTS       : usize = MAX_PUBLIC_INPUTS;
 pub const MAX_STACK_DEPTH   : usize = 32;
+
+
+
+
+#[cfg(test)]
+mod tests {
+	use std::{ env, io::Write, time::Instant };
+	use distaff::{ self, assembly, StarkProof, ProgramInputs };
+	use crate::stark::{ proof, verify};
+	use serde::{Deserialize, Serialize};
+
+	#[test]
+	fn basic_tests() {
+		// this is our program, we compile it from assembly code
+		let program = assembly::compile("begin push.3 push.5 add end").unwrap();
+
+		// let's execute it
+		let (outputs, proof) = distaff::execute(
+			&program,
+			&ProgramInputs::none(),     // we won't provide any inputs
+			1,                          // we'll return one item from the stack
+			&distaff::ProofOptions::default());  // we'll be using default options
+
+		let proof_bytes = bincode::serialize(&proof).unwrap();
+		println!("the program hash is {:?}", program.hash());
+		println!("the proof bytes is {:?}", hex::encode(&proof_bytes));
+
+		let stark_proof = bincode::deserialize::<proof::StarkProof >(&proof_bytes).unwrap();
+		match verify(program.hash(), &[], &[8], &stark_proof) {
+			Ok(_) => println!("Execution verified!"),
+			Err(msg) => println!("Execution verification failed: {}", msg)
+		}
+	}
+}

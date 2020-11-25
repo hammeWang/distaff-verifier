@@ -264,116 +264,116 @@ impl TraceTable {
 // TESTS
 // ================================================================================================
 
-#[cfg(test)]
-mod tests {
-
-    use std::collections::HashMap;
-    use crate::{
-        math::{ field, polynom, parallel, fft },
-        crypto::hash::blake3,
-        programs::{ Program, ProgramInputs, blocks::{ ProgramBlock, Span, Group } },
-        processor::{ execute, OpCode },
-        stark::{ TraceTable, CompositionCoefficients, utils::get_composition_degree }
-    };
-
-    const EXT_FACTOR: usize = 32;
-
-    #[test]
-    fn eval_polys_at() {
-        let mut trace = build_trace_table();
-        let lde_root = field::get_root_of_unity(trace.domain_size());
-        trace.extend(&fft::get_twiddles(lde_root, trace.domain_size()));
-
-        let g = field::get_root_of_unity(trace.unextended_length());
-
-        let v1 = trace.eval_polys_at(g);
-        let s1 = trace.get_state(1 * EXT_FACTOR);
-        assert_eq!(v1, s1.to_vec());
-
-        let v2 = trace.eval_polys_at(field::exp(g, 2));
-        let s2 = trace.get_state(2 * EXT_FACTOR);
-        assert_eq!(v2, s2.to_vec());
-    }
-
-    #[test]
-    fn get_composition_poly() {
-
-        let mut trace = build_trace_table();
-        let lde_root = field::get_root_of_unity(trace.domain_size());
-        trace.extend(&fft::get_twiddles(lde_root, trace.domain_size()));
-
-        // compute trace composition polynomial
-        let t_tree = trace.build_merkle_tree(blake3);
-        let z = field::prng(*t_tree.root());
-        let cc = CompositionCoefficients::new(*t_tree.root());
-        let target_degree =  get_composition_degree(trace.unextended_length());
-
-        let g = field::get_root_of_unity(trace.unextended_length());
-        let zg = field::mul(z, g);
-
-        let (composition_poly, ..) = trace.get_composition_poly(z, &cc);
-        let mut actual_evaluations = composition_poly.clone();
-        polynom::eval_fft(&mut actual_evaluations, true);
-        assert_eq!(target_degree, polynom::infer_degree(&actual_evaluations));
-
-        // compute expected evaluations
-        let domain_size = target_degree.next_power_of_two();
-        let domain_root = field::get_root_of_unity(domain_size);
-        let domain = field::get_power_series(domain_root, domain_size);
-
-        let mut expected_evaluations = vec![0; domain_size];
-
-        let tz = trace.eval_polys_at(z);
-        let tzg = trace.eval_polys_at(zg);
-
-        for i in 0..trace.register_count() {
-            // add T1(x) to expected evaluations
-            let mut trace_poly = trace.get_register_poly(i).to_vec();
-            trace_poly.resize(domain_size, 0);
-            polynom::eval_fft(&mut trace_poly, true);
-            parallel::sub_const_in_place(&mut trace_poly, tz[i], 1);
-            for j in 0..trace_poly.len() {
-                trace_poly[j] = field::div(trace_poly[j], field::sub(domain[j], z));
-            }
-            parallel::mul_acc(&mut expected_evaluations, &trace_poly, cc.trace1[i], 1);
-
-            // add T2(x) to expected evaluations
-            let mut trace_poly = trace.get_register_poly(i).to_vec();
-            trace_poly.resize(domain_size, 0);
-            polynom::eval_fft(&mut trace_poly, true);
-            parallel::sub_const_in_place(&mut trace_poly, tzg[i], 1);
-            for j in 0..trace_poly.len() {
-                trace_poly[j] = field::div(trace_poly[j], field::sub(domain[j], zg));
-            }
-            parallel::mul_acc(&mut expected_evaluations, &trace_poly, cc.trace2[i], 1);
-        }
-
-        // raise degree
-        let incremental_degree = target_degree - (trace.unextended_length() - 2);
-        for i in 0..domain.len() {
-            let y = expected_evaluations[i];
-            let y1 = field::mul(y, cc.t1_degree);
-
-            let xp = field::exp(domain[i], incremental_degree as u128);
-            let y2 = field::mul(field::mul(y, xp), cc.t2_degree);
-            expected_evaluations[i] = field::add(y1, y2);
-        }
-
-        assert_eq!(expected_evaluations, actual_evaluations);
-    }
-
-    fn build_trace_table() -> TraceTable {
-        let instructions = vec![
-            OpCode::Begin, OpCode::Swap, OpCode::Dup2, OpCode::Drop,
-            OpCode::Add,   OpCode::Swap, OpCode::Dup2, OpCode::Drop,
-            OpCode::Add,   OpCode::Swap, OpCode::Dup2, OpCode::Drop,
-            OpCode::Add,   OpCode::Noop, OpCode::Noop,
-        ];
-        let program = Program::new(Group::new(vec![
-            ProgramBlock::Span(Span::new(instructions, HashMap::new()))
-        ]));
-        let inputs = ProgramInputs::from_public(&[1, 0]);
-        let (trace, ctx_depth, loop_depth) = execute(&program, &inputs);
-        return TraceTable::new(trace, ctx_depth, loop_depth, EXT_FACTOR);
-    }
-}
+//#[cfg(test)]
+//mod tests {
+//
+//    use std::collections::HashMap;
+//    use crate::{
+//        math::{ field, polynom, parallel, fft },
+//        crypto::hash::blake3,
+//        programs::{ Program, ProgramInputs, blocks::{ ProgramBlock, Span, Group } },
+//        processor::{ execute, OpCode },
+//        stark::{ TraceTable, CompositionCoefficients, utils::get_composition_degree }
+//    };
+//
+//    const EXT_FACTOR: usize = 32;
+//
+//    #[test]
+//    fn eval_polys_at() {
+//        let mut trace = build_trace_table();
+//        let lde_root = field::get_root_of_unity(trace.domain_size());
+//        trace.extend(&fft::get_twiddles(lde_root, trace.domain_size()));
+//
+//        let g = field::get_root_of_unity(trace.unextended_length());
+//
+//        let v1 = trace.eval_polys_at(g);
+//        let s1 = trace.get_state(1 * EXT_FACTOR);
+//        assert_eq!(v1, s1.to_vec());
+//
+//        let v2 = trace.eval_polys_at(field::exp(g, 2));
+//        let s2 = trace.get_state(2 * EXT_FACTOR);
+//        assert_eq!(v2, s2.to_vec());
+//    }
+//
+//    #[test]
+//    fn get_composition_poly() {
+//
+//        let mut trace = build_trace_table();
+//        let lde_root = field::get_root_of_unity(trace.domain_size());
+//        trace.extend(&fft::get_twiddles(lde_root, trace.domain_size()));
+//
+//        // compute trace composition polynomial
+//        let t_tree = trace.build_merkle_tree(blake3);
+//        let z = field::prng(*t_tree.root());
+//        let cc = CompositionCoefficients::new(*t_tree.root());
+//        let target_degree =  get_composition_degree(trace.unextended_length());
+//
+//        let g = field::get_root_of_unity(trace.unextended_length());
+//        let zg = field::mul(z, g);
+//
+//        let (composition_poly, ..) = trace.get_composition_poly(z, &cc);
+//        let mut actual_evaluations = composition_poly.clone();
+//        polynom::eval_fft(&mut actual_evaluations, true);
+//        assert_eq!(target_degree, polynom::infer_degree(&actual_evaluations));
+//
+//        // compute expected evaluations
+//        let domain_size = target_degree.next_power_of_two();
+//        let domain_root = field::get_root_of_unity(domain_size);
+//        let domain = field::get_power_series(domain_root, domain_size);
+//
+//        let mut expected_evaluations = vec![0; domain_size];
+//
+//        let tz = trace.eval_polys_at(z);
+//        let tzg = trace.eval_polys_at(zg);
+//
+//        for i in 0..trace.register_count() {
+//            // add T1(x) to expected evaluations
+//            let mut trace_poly = trace.get_register_poly(i).to_vec();
+//            trace_poly.resize(domain_size, 0);
+//            polynom::eval_fft(&mut trace_poly, true);
+//            parallel::sub_const_in_place(&mut trace_poly, tz[i], 1);
+//            for j in 0..trace_poly.len() {
+//                trace_poly[j] = field::div(trace_poly[j], field::sub(domain[j], z));
+//            }
+//            parallel::mul_acc(&mut expected_evaluations, &trace_poly, cc.trace1[i], 1);
+//
+//            // add T2(x) to expected evaluations
+//            let mut trace_poly = trace.get_register_poly(i).to_vec();
+//            trace_poly.resize(domain_size, 0);
+//            polynom::eval_fft(&mut trace_poly, true);
+//            parallel::sub_const_in_place(&mut trace_poly, tzg[i], 1);
+//            for j in 0..trace_poly.len() {
+//                trace_poly[j] = field::div(trace_poly[j], field::sub(domain[j], zg));
+//            }
+//            parallel::mul_acc(&mut expected_evaluations, &trace_poly, cc.trace2[i], 1);
+//        }
+//
+//        // raise degree
+//        let incremental_degree = target_degree - (trace.unextended_length() - 2);
+//        for i in 0..domain.len() {
+//            let y = expected_evaluations[i];
+//            let y1 = field::mul(y, cc.t1_degree);
+//
+//            let xp = field::exp(domain[i], incremental_degree as u128);
+//            let y2 = field::mul(field::mul(y, xp), cc.t2_degree);
+//            expected_evaluations[i] = field::add(y1, y2);
+//        }
+//
+//        assert_eq!(expected_evaluations, actual_evaluations);
+//    }
+//
+//    fn build_trace_table() -> TraceTable {
+//        let instructions = vec![
+//            OpCode::Begin, OpCode::Swap, OpCode::Dup2, OpCode::Drop,
+//            OpCode::Add,   OpCode::Swap, OpCode::Dup2, OpCode::Drop,
+//            OpCode::Add,   OpCode::Swap, OpCode::Dup2, OpCode::Drop,
+//            OpCode::Add,   OpCode::Noop, OpCode::Noop,
+//        ];
+//        let program = Program::new(Group::new(vec![
+//            ProgramBlock::Span(Span::new(instructions, HashMap::new()))
+//        ]));
+//        let inputs = ProgramInputs::from_public(&[1, 0]);
+//        let (trace, ctx_depth, loop_depth) = execute(&program, &inputs);
+//        return TraceTable::new(trace, ctx_depth, loop_depth, EXT_FACTOR);
+//    }
+//}

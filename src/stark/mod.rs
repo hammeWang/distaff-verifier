@@ -3,7 +3,7 @@ mod constraints;
 mod options;
 
 mod verifier;
-mod proof;
+pub(crate) mod proof;
 mod fri;
 mod utils;
 

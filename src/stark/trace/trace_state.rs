@@ -389,192 +389,192 @@ fn binary_not(v: u128) -> u128 {
 
 // TESTS
 // ================================================================================================
-#[cfg(test)]
-mod tests {
-
-    use super::{ TraceState };
-
-    #[test]
-    fn from_vec() {
-
-        // empty context and loop stacks
-        let state = TraceState::from_vec(0, 0, 2, &vec![
-            101,  1, 2, 3, 4,  5, 6, 7,  8, 9, 10, 11, 12,  13, 14,  15, 16
-        ]);
-
-        assert_eq!(101, state.op_counter());
-        assert_eq!([1, 2, 3, 4], state.sponge());
-        assert_eq!([5, 6, 7], state.cf_op_bits());
-        assert_eq!([8, 9, 10, 11, 12], state.ld_op_bits());
-        assert_eq!([13, 14], state.hd_op_bits());
-        assert_eq!([0], state.ctx_stack());
-        assert_eq!([0], state.loop_stack());
-        assert_eq!([15, 16, 0, 0, 0, 0, 0, 0], state.user_stack());
-        assert_eq!(17, state.width());
-        assert_eq!(2, state.stack_depth());
-        assert_eq!(vec![
-            101, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16
-        ], state.to_vec());
-
-        // 1 item on context stack, empty loop stack
-        let state = TraceState::from_vec(1, 0, 2, &vec![
-            101,  1, 2, 3, 4,  5, 6, 7,  8, 9, 10, 11, 12,  13, 14,  15,  16, 17
-        ]);
-
-        assert_eq!(101, state.op_counter());
-        assert_eq!([1, 2, 3, 4], state.sponge());
-        assert_eq!([5, 6, 7], state.cf_op_bits());
-        assert_eq!([8, 9, 10, 11, 12], state.ld_op_bits());
-        assert_eq!([13, 14], state.hd_op_bits());
-        assert_eq!([15], state.ctx_stack());
-        assert_eq!([0], state.loop_stack());
-        assert_eq!([16, 17, 0, 0, 0, 0, 0, 0], state.user_stack());
-        assert_eq!(18, state.width());
-        assert_eq!(2, state.stack_depth());
-        assert_eq!(vec![
-            101, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17
-        ], state.to_vec());
-
-        // non-empty loop stack
-        let state = TraceState::from_vec(2, 1, 9, &vec![
-            101,  1, 2, 3, 4,  5, 6, 7,  8, 9, 10, 11, 12,  13, 14,  15, 16,  17,
-            18, 19, 20, 21, 22, 23, 24, 25, 26,
-        ]);
-
-        assert_eq!(101, state.op_counter());
-        assert_eq!([1, 2, 3, 4], state.sponge());
-        assert_eq!([5, 6, 7], state.cf_op_bits());
-        assert_eq!([8, 9, 10, 11, 12], state.ld_op_bits());
-        assert_eq!([13, 14], state.hd_op_bits());
-        assert_eq!([15, 16], state.ctx_stack());
-        assert_eq!([17], state.loop_stack());
-        assert_eq!([18, 19, 20, 21, 22, 23, 24, 25, 26], state.user_stack());
-        assert_eq!(27, state.width());
-        assert_eq!(9, state.stack_depth());
-        assert_eq!(vec![
-            101, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,
-            18, 19, 20, 21, 22, 23, 24, 25, 26,
-        ], state.to_vec());
-    }
-
-    #[test]
-    fn update_from_trace() {
-        let data = vec![
-            101,  1, 2, 3, 4,  5, 6, 7,  8, 9, 10, 11, 12,  13, 14,  15, 16,  17,  18, 19, 20
-        ];
-        let mut trace = Vec::with_capacity(data.len());
-        for i in 0..data.len() {
-            trace.push(vec![0, data[i], 0]);
-        }
-
-        // first row
-        let mut state = TraceState::new(2, 1, 3);
-        state.update_from_trace(&trace, 0);
-
-        assert_eq!(0, state.op_counter());
-        assert_eq!([0, 0, 0, 0], state.sponge());
-        assert_eq!([0, 0, 0], state.cf_op_bits());
-        assert_eq!([0, 0, 0, 0, 0], state.ld_op_bits());
-        assert_eq!([0, 0], state.hd_op_bits());
-        assert_eq!([0, 0], state.ctx_stack());
-        assert_eq!([0], state.loop_stack());
-        assert_eq!([0, 0, 0, 0, 0, 0, 0, 0], state.user_stack());
-        assert_eq!(21, state.width());
-        assert_eq!(3, state.stack_depth());
-
-        // second row
-        state.update_from_trace(&trace, 1);
-
-        assert_eq!(101, state.op_counter());
-        assert_eq!([1, 2, 3, 4], state.sponge());
-        assert_eq!([5, 6, 7], state.cf_op_bits());
-        assert_eq!([8, 9, 10, 11, 12], state.ld_op_bits());
-        assert_eq!([13, 14], state.hd_op_bits());
-        assert_eq!([15, 16], state.ctx_stack());
-        assert_eq!([17], state.loop_stack());
-        assert_eq!([18, 19, 20, 0, 0, 0, 0, 0], state.user_stack());
-        assert_eq!(21, state.width());
-        assert_eq!(3, state.stack_depth());
-    }
-
-    #[test]
-    fn op_flags() {
-
-        // all zeros
-        let state = TraceState::from_vec(1, 0, 2, &vec![
-            101,  1, 2, 3, 4,  0, 0, 0,  0, 0, 0, 0, 0,  0, 0,  15, 16, 17
-        ]);
-
-        assert_eq!([1, 0, 0, 0, 0, 0, 0, 0], state.cf_op_flags());
-        assert_eq!([
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        ], state.ld_op_flags());
-        assert_eq!([0, 0, 0, 0], state.hd_op_flags());
-        assert_eq!(1, state.begin_flag());
-        assert_eq!(0, state.noop_flag());
-
-        // all ones
-        let state = TraceState::from_vec(1, 0, 2, &vec![
-            101,  1, 2, 3, 4,  1, 1, 1,  1, 1, 1, 1, 1,  1, 1,  15, 16, 17
-        ]);
-
-        assert_eq!([0, 0, 0, 0, 0, 0, 0, 1], state.cf_op_flags());
-        assert_eq!([
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-        ], state.ld_op_flags());
-        assert_eq!([0, 0, 0, 1], state.hd_op_flags());
-        assert_eq!(0, state.begin_flag());
-        assert_eq!(1, state.noop_flag());
-
-        // mixed 1
-        let state = TraceState::from_vec(1, 0, 2, &vec![
-            101,  1, 2, 3, 4,  1, 0, 0,  1, 0, 0, 0, 0,  1, 0,  15, 16, 17
-        ]);
-
-        assert_eq!([0, 1, 0, 0, 0, 0, 0, 0], state.cf_op_flags());
-        assert_eq!([
-            0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        ], state.ld_op_flags());
-        assert_eq!([0, 1, 0, 0], state.hd_op_flags());
-        assert_eq!(0, state.begin_flag());
-        assert_eq!(0, state.noop_flag());
-
-        // mixed 2
-        let state = TraceState::from_vec(1, 0, 2, &vec![
-            101, 1, 2, 3, 4, 1, 1, 0, 1, 1, 0, 0, 0, 0, 1, 15, 16, 17
-        ]);
-
-        assert_eq!([0, 0, 0, 1, 0, 0, 0, 0], state.cf_op_flags());
-        assert_eq!([
-            0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        ], state.ld_op_flags());
-        assert_eq!([0, 0, 1, 0], state.hd_op_flags());
-    }
-
-    #[test]
-    fn op_code() {
-        let state = TraceState::from_vec(1, 0, 2, &vec![
-            101,  1, 2, 3, 4,  1, 1, 1,  0, 0, 0, 0, 0,  0, 0,  15, 16, 17
-        ]);
-        assert_eq!(0, state.op_code());
-
-        let state = TraceState::from_vec(1, 0, 2, &vec![
-            101,  1, 2, 3, 4,  1, 1, 1,  1, 1, 1, 1, 1,  1, 1,  15, 16, 17
-        ]);
-        assert_eq!(127, state.op_code());
-
-        let state = TraceState::from_vec(1, 0, 2, &vec![
-            101,  1, 2, 3, 4,  1, 1, 1,  1, 1, 1, 1, 1,  1, 0,  15, 16, 17
-        ]);
-        assert_eq!(63, state.op_code());
-
-        let state = TraceState::from_vec(1, 0, 2, &vec![
-            101,  1, 2, 3, 4,  1, 1, 1,  1, 0, 0, 0, 0,  1, 1,  15, 16, 17
-        ]);
-        assert_eq!(97, state.op_code());
-    }
-}
+//#[cfg(test)]
+//mod tests {
+//
+//    use super::{ TraceState };
+//
+//    #[test]
+//    fn from_vec() {
+//
+//        // empty context and loop stacks
+//        let state = TraceState::from_vec(0, 0, 2, &vec![
+//            101,  1, 2, 3, 4,  5, 6, 7,  8, 9, 10, 11, 12,  13, 14,  15, 16
+//        ]);
+//
+//        assert_eq!(101, state.op_counter());
+//        assert_eq!([1, 2, 3, 4], state.sponge());
+//        assert_eq!([5, 6, 7], state.cf_op_bits());
+//        assert_eq!([8, 9, 10, 11, 12], state.ld_op_bits());
+//        assert_eq!([13, 14], state.hd_op_bits());
+//        assert_eq!([0], state.ctx_stack());
+//        assert_eq!([0], state.loop_stack());
+//        assert_eq!([15, 16, 0, 0, 0, 0, 0, 0], state.user_stack());
+//        assert_eq!(17, state.width());
+//        assert_eq!(2, state.stack_depth());
+//        assert_eq!(vec![
+//            101, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16
+//        ], state.to_vec());
+//
+//        // 1 item on context stack, empty loop stack
+//        let state = TraceState::from_vec(1, 0, 2, &vec![
+//            101,  1, 2, 3, 4,  5, 6, 7,  8, 9, 10, 11, 12,  13, 14,  15,  16, 17
+//        ]);
+//
+//        assert_eq!(101, state.op_counter());
+//        assert_eq!([1, 2, 3, 4], state.sponge());
+//        assert_eq!([5, 6, 7], state.cf_op_bits());
+//        assert_eq!([8, 9, 10, 11, 12], state.ld_op_bits());
+//        assert_eq!([13, 14], state.hd_op_bits());
+//        assert_eq!([15], state.ctx_stack());
+//        assert_eq!([0], state.loop_stack());
+//        assert_eq!([16, 17, 0, 0, 0, 0, 0, 0], state.user_stack());
+//        assert_eq!(18, state.width());
+//        assert_eq!(2, state.stack_depth());
+//        assert_eq!(vec![
+//            101, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17
+//        ], state.to_vec());
+//
+//        // non-empty loop stack
+//        let state = TraceState::from_vec(2, 1, 9, &vec![
+//            101,  1, 2, 3, 4,  5, 6, 7,  8, 9, 10, 11, 12,  13, 14,  15, 16,  17,
+//            18, 19, 20, 21, 22, 23, 24, 25, 26,
+//        ]);
+//
+//        assert_eq!(101, state.op_counter());
+//        assert_eq!([1, 2, 3, 4], state.sponge());
+//        assert_eq!([5, 6, 7], state.cf_op_bits());
+//        assert_eq!([8, 9, 10, 11, 12], state.ld_op_bits());
+//        assert_eq!([13, 14], state.hd_op_bits());
+//        assert_eq!([15, 16], state.ctx_stack());
+//        assert_eq!([17], state.loop_stack());
+//        assert_eq!([18, 19, 20, 21, 22, 23, 24, 25, 26], state.user_stack());
+//        assert_eq!(27, state.width());
+//        assert_eq!(9, state.stack_depth());
+//        assert_eq!(vec![
+//            101, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,
+//            18, 19, 20, 21, 22, 23, 24, 25, 26,
+//        ], state.to_vec());
+//    }
+//
+//    #[test]
+//    fn update_from_trace() {
+//        let data = vec![
+//            101,  1, 2, 3, 4,  5, 6, 7,  8, 9, 10, 11, 12,  13, 14,  15, 16,  17,  18, 19, 20
+//        ];
+//        let mut trace = Vec::with_capacity(data.len());
+//        for i in 0..data.len() {
+//            trace.push(vec![0, data[i], 0]);
+//        }
+//
+//        // first row
+//        let mut state = TraceState::new(2, 1, 3);
+//        state.update_from_trace(&trace, 0);
+//
+//        assert_eq!(0, state.op_counter());
+//        assert_eq!([0, 0, 0, 0], state.sponge());
+//        assert_eq!([0, 0, 0], state.cf_op_bits());
+//        assert_eq!([0, 0, 0, 0, 0], state.ld_op_bits());
+//        assert_eq!([0, 0], state.hd_op_bits());
+//        assert_eq!([0, 0], state.ctx_stack());
+//        assert_eq!([0], state.loop_stack());
+//        assert_eq!([0, 0, 0, 0, 0, 0, 0, 0], state.user_stack());
+//        assert_eq!(21, state.width());
+//        assert_eq!(3, state.stack_depth());
+//
+//        // second row
+//        state.update_from_trace(&trace, 1);
+//
+//        assert_eq!(101, state.op_counter());
+//        assert_eq!([1, 2, 3, 4], state.sponge());
+//        assert_eq!([5, 6, 7], state.cf_op_bits());
+//        assert_eq!([8, 9, 10, 11, 12], state.ld_op_bits());
+//        assert_eq!([13, 14], state.hd_op_bits());
+//        assert_eq!([15, 16], state.ctx_stack());
+//        assert_eq!([17], state.loop_stack());
+//        assert_eq!([18, 19, 20, 0, 0, 0, 0, 0], state.user_stack());
+//        assert_eq!(21, state.width());
+//        assert_eq!(3, state.stack_depth());
+//    }
+//
+//    #[test]
+//    fn op_flags() {
+//
+//        // all zeros
+//        let state = TraceState::from_vec(1, 0, 2, &vec![
+//            101,  1, 2, 3, 4,  0, 0, 0,  0, 0, 0, 0, 0,  0, 0,  15, 16, 17
+//        ]);
+//
+//        assert_eq!([1, 0, 0, 0, 0, 0, 0, 0], state.cf_op_flags());
+//        assert_eq!([
+//            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+//            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+//        ], state.ld_op_flags());
+//        assert_eq!([0, 0, 0, 0], state.hd_op_flags());
+//        assert_eq!(1, state.begin_flag());
+//        assert_eq!(0, state.noop_flag());
+//
+//        // all ones
+//        let state = TraceState::from_vec(1, 0, 2, &vec![
+//            101,  1, 2, 3, 4,  1, 1, 1,  1, 1, 1, 1, 1,  1, 1,  15, 16, 17
+//        ]);
+//
+//        assert_eq!([0, 0, 0, 0, 0, 0, 0, 1], state.cf_op_flags());
+//        assert_eq!([
+//            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+//            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+//        ], state.ld_op_flags());
+//        assert_eq!([0, 0, 0, 1], state.hd_op_flags());
+//        assert_eq!(0, state.begin_flag());
+//        assert_eq!(1, state.noop_flag());
+//
+//        // mixed 1
+//        let state = TraceState::from_vec(1, 0, 2, &vec![
+//            101,  1, 2, 3, 4,  1, 0, 0,  1, 0, 0, 0, 0,  1, 0,  15, 16, 17
+//        ]);
+//
+//        assert_eq!([0, 1, 0, 0, 0, 0, 0, 0], state.cf_op_flags());
+//        assert_eq!([
+//            0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+//            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+//        ], state.ld_op_flags());
+//        assert_eq!([0, 1, 0, 0], state.hd_op_flags());
+//        assert_eq!(0, state.begin_flag());
+//        assert_eq!(0, state.noop_flag());
+//
+//        // mixed 2
+//        let state = TraceState::from_vec(1, 0, 2, &vec![
+//            101, 1, 2, 3, 4, 1, 1, 0, 1, 1, 0, 0, 0, 0, 1, 15, 16, 17
+//        ]);
+//
+//        assert_eq!([0, 0, 0, 1, 0, 0, 0, 0], state.cf_op_flags());
+//        assert_eq!([
+//            0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+//            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+//        ], state.ld_op_flags());
+//        assert_eq!([0, 0, 1, 0], state.hd_op_flags());
+//    }
+//
+//    #[test]
+//    fn op_code() {
+//        let state = TraceState::from_vec(1, 0, 2, &vec![
+//            101,  1, 2, 3, 4,  1, 1, 1,  0, 0, 0, 0, 0,  0, 0,  15, 16, 17
+//        ]);
+//        assert_eq!(0, state.op_code());
+//
+//        let state = TraceState::from_vec(1, 0, 2, &vec![
+//            101,  1, 2, 3, 4,  1, 1, 1,  1, 1, 1, 1, 1,  1, 1,  15, 16, 17
+//        ]);
+//        assert_eq!(127, state.op_code());
+//
+//        let state = TraceState::from_vec(1, 0, 2, &vec![
+//            101,  1, 2, 3, 4,  1, 1, 1,  1, 1, 1, 1, 1,  1, 0,  15, 16, 17
+//        ]);
+//        assert_eq!(63, state.op_code());
+//
+//        let state = TraceState::from_vec(1, 0, 2, &vec![
+//            101,  1, 2, 3, 4,  1, 1, 1,  1, 0, 0, 0, 0,  1, 1,  15, 16, 17
+//        ]);
+//        assert_eq!(97, state.op_code());
+//    }
+//}
